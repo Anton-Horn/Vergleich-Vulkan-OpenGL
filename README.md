@@ -1,7 +1,8 @@
 # Vergleich-Vulkan-OpenGL
 
 - Dieses Repository ist entstanden für den Kurs An. zum Wissenschaftlichem Arbeiten.
-- in den einzelnen Branches wird die jeweilige Methode zwischen OpenGL und Vulkan verglichen.
+- In den einzelnen Branches ist die jeweilige Methode in OpenGL und Vulkan implementiert.
+- Es kann mit dem Makro VULKAN_TEST/OPENGL_TEST zwischen den APIs gewechselt werden.
 
 # Build Tutorial
 
