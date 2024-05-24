@@ -181,7 +181,7 @@ namespace ec {
 
 	void VulkanImage::switchLayout(const VulkanContext& context, uint32_t newLayout)
 	{
-
+		
 		VkCommandPool commandPool;
 		VkCommandPoolCreateInfo commandPoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		commandPoolCreateInfo.queueFamilyIndex = context.getData().transferQueueFamilyIndex;

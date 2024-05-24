@@ -286,6 +286,10 @@ namespace ec {
 		return m_data;
 	}
 
+	uint32_t alignToPow2(uint32_t alignment, uint32_t value) {
+		return  (value + alignment - 1) & ~(alignment - 1);
+	}
+
 }
 
 

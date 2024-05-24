@@ -246,6 +246,7 @@ namespace ec {
 		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		createInfo.queueFamilyIndex = context.getData().graphicsQueueFamilyIndex;
 		createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+		
 
 		VKA(vkCreateCommandPool(context.getData().device, &createInfo, nullptr, &result));
 		return result;
@@ -302,10 +303,6 @@ namespace ec {
 
 		VKA(vkCreateSemaphore(context.getData().device, &createInfo, nullptr, &result));
 		return result;
-	}
-
-	 uint32_t alignToPow2(uint32_t alignment, uint32_t value) {
-		return  (value + alignment - 1) & ~(alignment - 1);
 	}
 
 	 VkSurfaceKHR createSurface(const VulkanContext& context, GLFWwindow* window) {

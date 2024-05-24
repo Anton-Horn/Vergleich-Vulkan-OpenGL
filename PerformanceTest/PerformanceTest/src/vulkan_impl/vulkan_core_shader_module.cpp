@@ -51,6 +51,7 @@ namespace ec {
 			resource.shaderStage = shaderStage;
 
 			if (r.name.find("dynamic") != std::string::npos) {
+
 				resource.type = VulkanShaderResourceType::DYNAMIC_UNIFORM_BUFFER;
 			}
 			else {

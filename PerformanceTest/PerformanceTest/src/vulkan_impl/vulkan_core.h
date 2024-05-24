@@ -31,6 +31,8 @@ struct GLFWwindow;
 
 namespace ec {
 
+	uint32_t alignToPow2(uint32_t alignment, uint32_t value);
+
 	struct VulkanContextData {
 
 		VkDevice device;

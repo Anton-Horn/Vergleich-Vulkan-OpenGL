@@ -6,7 +6,7 @@ namespace ec {
 
 	void VulkanBuffer::create(const VulkanContext& context, uint64_t size, VkBufferUsageFlags usage, MemoryType type)
 	{
-
+		
 		VkBufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 		createInfo.size = size;
 		createInfo.usage = usage;
@@ -23,8 +23,8 @@ namespace ec {
 		else if (type == MemoryType::Host_local) {
 			allocationCreateInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
 		}
-		allocationCreateInfo.flags = 0;
-
+		
+		
 		VKA(vmaCreateBuffer(context.getData().allocator, &createInfo, &allocationCreateInfo, &m_buffer, &m_allocation, nullptr));
 	}
 
@@ -123,8 +123,6 @@ namespace ec {
 			vkDestroyCommandPool(context.getData().device, transferCommandPool, nullptr);
 			vmaDestroyBuffer(context.getData().allocator, stagingBuffer, stagingAllocation);
 			
-			
-
 		}
 	}
 

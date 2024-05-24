@@ -30,7 +30,6 @@ namespace ec {
     VkSurfaceKHR createSurface(const VulkanContext& context, GLFWwindow* window);
     void destroySurface(const VulkanContext& context, VkSurfaceKHR surface);
 
-    uint32_t alignToPow2(uint32_t alignment, uint32_t value);
     VkSampleCountFlagBits getSampleCount(uint8_t sampleCount);
     uint32_t getFormatSize(VkFormat format);
     std::vector<const char*> getInstanceExtensions();

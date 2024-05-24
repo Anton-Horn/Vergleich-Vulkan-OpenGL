@@ -12,11 +12,16 @@
 #include "vulkan_impl/vulkan_core.h"
 #include "vulkan_impl/vulkan_utils.h"
 
-
-
-#define VULKAN_TEST 1
+#define OPENGL_TEST 1
+#define TEST_WITH_UNIFORMS 0
 
 using namespace ec;
+
+struct Mat4 {
+
+    float data[16];
+
+};
 
 struct Vertex {
     float x, y, z;
@@ -26,9 +31,12 @@ struct Vertex {
 
 };
 
-const uint32_t rows = 2000;
-const uint32_t columns = 2000;
+const uint32_t drawCount = 50;
+const uint32_t rows = 500;
+const uint32_t columns = 500;
 const uint32_t vertex_count = rows * columns * 6;
+
+const uint32_t matrixCount = 3;
 
 std::vector<Vertex> getTestData() {
   
@@ -181,13 +189,44 @@ int opengl_test() {
 
     glfwMakeContextCurrent(window);
 
-
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         return -1;
 
     uint32_t vb = 0;
 
     uint32_t program = get_shader_program("vertex.vert", "fragment.frag");
+   
+#ifdef TEST_WITH_UNIFORMS
+
+    uint32_t uboMatrices = 0;
+
+    GLuint blockIndex = glGetUniformBlockIndex(program, "Matrices");
+    glUniformBlockBinding(program, blockIndex, 0);
+
+    glGenBuffers(1, &uboMatrices);
+    glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+    glBufferData(GL_UNIFORM_BUFFER, drawCount * matrixCount * sizeof(Mat4), NULL, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    Mat4 m;
+    m.data[0] = 1.0f;
+
+    for (int i = 0; i < drawCount; ++i)
+    {
+        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+        for (int j = 0; j < matrixCount; j++) {
+
+            GLuint offset = i * matrixCount * sizeof(Mat4);      
+            glBufferSubData(GL_UNIFORM_BUFFER, offset + sizeof(Mat4) * j, sizeof(Mat4), &m);
+
+        }
+
+       
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+#endif
+
     glUseProgram(program);
 
     glGenBuffers(1, &vb);
@@ -209,8 +248,8 @@ int opengl_test() {
     uint32_t timeQuery;
     glGenQueries(1, &timeQuery);
 
-    double averageGpuTime = 0.0f;
-
+    double averageGpuTime = 0.0;
+    double lastFrameTime = 0.0;
     glfwSwapInterval(0.0f);
 
     while (!glfwWindowShouldClose(window))
@@ -220,7 +259,17 @@ int opengl_test() {
 
         glBeginQuery(GL_TIME_ELAPSED, timeQuery);
 
-        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+        
+        for (uint32_t i = 0; i < drawCount; i++) {
+
+#ifdef TEST_WITH_UNIFORMS
+            GLuint offset = i * sizeof(Mat4) * matrixCount;
+            glBindBufferRange(GL_UNIFORM_BUFFER, 0, uboMatrices, offset, sizeof(Mat4) * matrixCount);
+#endif
+
+            glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+
+        }      
 
         glEndQuery(GL_TIME_ELAPSED);
 
@@ -230,6 +279,12 @@ int opengl_test() {
         std::cout << "GPU Time: " << averageGpuTime << " ms" << std::endl;
 
         glfwSwapBuffers(window);
+
+        double time = glfwGetTime();
+
+       std::cout << (time - lastFrameTime) * 1000 << "\n";
+
+        lastFrameTime = glfwGetTime();
 
         glfwPollEvents();
 
@@ -276,25 +331,8 @@ int vulkan_test() {
 
     VkCommandPool commandPool = createCommandPool(context);
 
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-            { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-            { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-    };
-
-    VkDescriptorPool descriptorPool = createDesciptorPool(context, 1, poolSizes);
-
     VkCommandBuffer commandBuffer = allocateCommandBuffer(context, commandPool);
    
-
     VulkanPipelineCreateInfo pipelineCreateInfo;
     pipelineCreateInfo.subpassIndex = 0;
      
@@ -312,8 +350,50 @@ int vulkan_test() {
     std::vector<Vertex> vertices = getTestData();
 
     VulkanBuffer vertexBuffer;
-    vertexBuffer.create(context, vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+    vertexBuffer.create(context, vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, MemoryType::Device_local);
     vertexBuffer.uploadData(context, vertices.data(), vertices.size() * sizeof(Vertex));
+
+#ifdef TEST_WITH_UNIFORMS
+
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+            { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+            { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+            { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+    };
+
+    VkDescriptorPool descriptorPool = createDesciptorPool(context, 1, poolSizes);
+
+    struct Data {
+
+        Mat4 m1;
+        Mat4 m2;
+        Mat4 m3;
+
+    };
+
+    UniformBuffer<Data> uniformBuffer;
+    uniformBuffer.create(context, MemoryType::Device_local, drawCount);
+
+    uint32_t alignedSize = alignToPow2((uint32_t)context.getData().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(Data));
+
+    void* uniformData = new uint8_t[alignedSize * drawCount];
+   
+    uniformBuffer.buffer.uploadData(context, uniformData, alignedSize * drawCount, 0);
+
+    VkDescriptorSet descriptorSet;
+
+    descriptorSet = allocateDescriptorSet(context, context.getData().generalDescriptorPool, pipeline.getShaders().getLayouts()[0]);
+    writeDescriptorUniformBuffer(context, descriptorSet, 0, uniformBuffer.buffer, true, 0, alignedSize);
+
+#endif
 
     VkQueryPool timestampQueryPool = {};
 
@@ -323,6 +403,7 @@ int vulkan_test() {
     VKA(vkCreateQueryPool(context.getData().device, &queryPoolCreateInfo, nullptr, &timestampQueryPool));
 
     double averageGpuTime = 0.0f;
+    double lastFrameTime = 0.0f;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -341,7 +422,7 @@ int vulkan_test() {
 
             averageGpuTime = 0.99f * averageGpuTime + 0.01f * (frameGpuEnd - frameGpuBegin);
 
-            std::cout << "Average GPU Time: " << averageGpuTime << "\n";
+            std::cout << "Average GPU Time: " << averageGpuTime << "ms\n";
         }
 
         vkResetCommandPool(context.getData().device, commandPool, 0);
@@ -352,6 +433,7 @@ int vulkan_test() {
         VKA(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         vkCmdResetQueryPool(commandBuffer, timestampQueryPool, 0, 64);
+
         vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 0);
 
         VkRenderPassBeginInfo renderpassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
@@ -377,7 +459,21 @@ int vulkan_test() {
         const VkBuffer buffer = vertexBuffer.getBuffer();
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, offsets);   
 
-        vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
+
+        for (uint32_t i = 0; i < drawCount; i++) {
+
+#ifdef TEST_WITH_UNIFORMS
+
+            uint32_t alignedSize = alignToPow2((uint32_t)context.getData().deviceProperties.limits.minUniformBufferOffsetAlignment, sizeof(Data));
+            uint32_t offset = alignedSize * i;
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getLayout(), 0, 1, &descriptorSet, 1, &offset);
+
+#endif
+
+            vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
+        }
+
+        
 
         vkCmdEndRenderPass(commandBuffer);
 
@@ -400,6 +496,12 @@ int vulkan_test() {
 
         recreateSwapchain = false;
         vulkanWindow.swapchain.present(context, { submitSemaphore }, recreateSwapchain);
+
+        double time = glfwGetTime();
+
+        std::cout << (time - lastFrameTime) * 1000 << "\n";
+
+        lastFrameTime = glfwGetTime();
 
         glfwPollEvents();
     }
