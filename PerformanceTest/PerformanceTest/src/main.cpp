@@ -14,7 +14,7 @@
 
 
 
-#define VULKAN_TEST 1
+#define OPENGL_TEST 1
 
 using namespace ec;
 
@@ -227,7 +227,7 @@ int opengl_test() {
         GLuint64 elapsed_time;
         glGetQueryObjectui64v(timeQuery, GL_QUERY_RESULT, &elapsed_time);
         averageGpuTime = 0.99f * averageGpuTime + 0.01f * (elapsed_time / 1000000.0);
-        std::cout << "GPU Time: " << averageGpuTime << " ms" << std::endl;
+        std::cout << "GPU Time: " << averageGpuTime << "ms" << std::endl;
 
         glfwSwapBuffers(window);
 
@@ -341,7 +341,7 @@ int vulkan_test() {
 
             averageGpuTime = 0.99f * averageGpuTime + 0.01f * (frameGpuEnd - frameGpuBegin);
 
-            std::cout << "Average GPU Time: " << averageGpuTime << "\n";
+            std::cout << "GPU Time: " << averageGpuTime << "ms\n";
         }
 
         vkResetCommandPool(context.getData().device, commandPool, 0);
