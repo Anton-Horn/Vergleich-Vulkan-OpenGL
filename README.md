@@ -4,6 +4,7 @@
 - In den einzelnen Branches ist die jeweilige Methode in OpenGL und Vulkan implementiert.
 - Es kann mit dem Makro VULKAN_TEST/OPENGL_TEST zwischen den APIs gewechselt werden.
 - Die Vulkan Implementierung verwendet eine Abstraktionsschicht. Diese hat keinen Einfluss auf die Runtime performance.
+- Das Projekt wurde nur unter Windows mit einer NVIDIA Grafikkarte getestet. 
 
 #Verwendete Bibliotheken
 
