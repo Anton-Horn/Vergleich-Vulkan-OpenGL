@@ -166,8 +166,6 @@ namespace ec {
 	void VulkanBuffer::uploadFullData(const VulkanContext& context, VkCommandBuffer commandBuffer, void* data)
 	{
 
-		assert(offset + size <= getSize(context));
-
 		VmaAllocationInfo allocationInfo;
 		vmaGetAllocationInfo(context.getData().allocator, m_allocation, &allocationInfo);
 

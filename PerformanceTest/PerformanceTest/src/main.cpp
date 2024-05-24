@@ -13,7 +13,7 @@
 #include "vulkan_impl/vulkan_core.h"
 #include "vulkan_impl/vulkan_utils.h"
 
-#define OPENGL_TEST 1
+#define VULKAN_TEST 1
 
 using namespace ec;
 
