@@ -1,20 +1,19 @@
 #include <iostream>
 #include <numeric>
-#include <assert.h>
-#include <vulkan/vulkan.h>
-
 #include <string>
 #include <fstream>
 #include <filesystem>
+
+#include <assert.h>
+
+#include <vulkan/vulkan.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "vulkan_impl/vulkan_core.h"
 #include "vulkan_impl/vulkan_utils.h"
 
-
-
-#define VULKAN_TEST 1
+#define OPENGL_TEST 1
 
 using namespace ec;
 
@@ -26,8 +25,8 @@ struct Vertex {
 
 };
 
-const uint32_t rows = 2000;
-const uint32_t columns = 2000;
+const uint32_t rows = 1000;
+const uint32_t columns = 1000;
 const uint32_t vertex_count = rows * columns * 6;
 
 std::vector<Vertex> getTestData() {
@@ -55,12 +54,9 @@ std::vector<Vertex> getTestData() {
             vertices.push_back({ x, nextY, z , color });
             vertices.push_back({ nextX, y, z , color });
 
-            // Dreieck 2
             vertices.push_back({ nextX, y, z ,color });
             vertices.push_back({ x, nextY, z ,color });
             vertices.push_back({ nextX, nextY, z ,color });
-
-
 
         }
     }
@@ -202,7 +198,7 @@ int opengl_test() {
     uint32_t offset = sizeof(float) * 3;
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offset);
 
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), nullptr, GL_DYNAMIC_DRAW);
 
     glClearColor(0.1, 0.1, 0.1, 1.0);
 
@@ -220,9 +216,11 @@ int opengl_test() {
 
         glBeginQuery(GL_TIME_ELAPSED, timeQuery);
 
-        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertices.size() * sizeof(Vertex), vertices.data());
 
         glEndQuery(GL_TIME_ELAPSED);
+
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
         GLuint64 elapsed_time;
         glGetQueryObjectui64v(timeQuery, GL_QUERY_RESULT, &elapsed_time);
@@ -309,11 +307,10 @@ int vulkan_test() {
     VulkanPipeline pipeline;
     pipeline.create(context, pipelineCreateInfo);
 
-    std::vector<Vertex> vertices = getTestData();
+    std::vector<Vertex> vertices1 = getTestData();
 
     VulkanBuffer vertexBuffer;
-    vertexBuffer.create(context, vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-    vertexBuffer.uploadData(context, vertices.data(), vertices.size() * sizeof(Vertex));
+    vertexBuffer.create(context, vertices1.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, MemoryType::Auto);
 
     VkQueryPool timestampQueryPool = {};
 
@@ -352,7 +349,11 @@ int vulkan_test() {
         VKA(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
         vkCmdResetQueryPool(commandBuffer, timestampQueryPool, 0, 64);
-        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 0);
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, timestampQueryPool, 0);
+        
+        vertexBuffer.uploadFullData(context, commandBuffer, vertices1.data());
+
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, timestampQueryPool, 1);
 
         VkRenderPassBeginInfo renderpassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
         renderpassBeginInfo.renderPass =  vulkanWindow.swapchain.getRenderpass().getRenderpass();
@@ -377,11 +378,9 @@ int vulkan_test() {
         const VkBuffer buffer = vertexBuffer.getBuffer();
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, offsets);   
 
-        vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
+        vkCmdDraw(commandBuffer, vertices1.size(), 1, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
-
-        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 1);
 
         vkEndCommandBuffer(commandBuffer);
 

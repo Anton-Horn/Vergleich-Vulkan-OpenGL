@@ -103,12 +103,18 @@ namespace ec {
 		void destroy(const VulkanContext& context);
 
 		void uploadData(const VulkanContext& context, void* data, uint32_t size, uint32_t offset = 0);
+		void uploadFullData(const VulkanContext& context, VkCommandBuffer commandBuffer, void* data);
+
+
 		uint64_t getSize(const VulkanContext& context) const;
 		const VkBuffer getBuffer() const;
 
 	private:
 
 		VkBuffer m_buffer;
+		VkBuffer m_stagingBuffer;
+		uint32_t m_size;
+		VmaAllocation m_stagingAllocation;
 		VmaAllocation m_allocation;
 		VkBufferUsageFlags m_usage;
 
