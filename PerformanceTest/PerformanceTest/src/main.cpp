@@ -12,7 +12,8 @@
 #include "vulkan_impl/vulkan_core.h"
 #include "vulkan_impl/vulkan_utils.h"
 
-#define OPENGL_TEST 1
+#define VULKAN_TEST 1
+//#define USE_PRE_RECOREDED_COMMAND_BUFFER 1
 
 using namespace ec;
 
@@ -30,9 +31,9 @@ struct Vertex {
 
 };
 
-const uint32_t drawCount = 50;
-const uint32_t rows = 500;
-const uint32_t columns = 500;
+const uint32_t drawCount = 500;
+const uint32_t rows = 100;
+const uint32_t columns = 100;
 const uint32_t vertex_count = rows * columns * 6;
 
 std::vector<Vertex> getTestData() {
@@ -215,7 +216,8 @@ int opengl_test() {
     glGenQueries(1, &timeQuery);
 
     double averageGpuTime = 0.0;
-    double lastFrameTime = 0.0;
+    double lastFrameTime = 0.0f;
+
     glfwSwapInterval(0.0f);
 
     while (!glfwWindowShouldClose(window))
@@ -243,7 +245,7 @@ int opengl_test() {
 
         double time = glfwGetTime();
 
-       std::cout << (time - lastFrameTime) * 1000 << "\n";
+        std::cout << "Frame Time: " << (time - lastFrameTime) * 1000 << "\n";
 
         lastFrameTime = glfwGetTime();
 
@@ -265,7 +267,7 @@ int vulkan_test() {
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
-   
+
     std::string title = "Vulkan - Drawing " + std::to_string(vertex_count) + " Vertices";
 
     window = glfwCreateWindow(640, 480, title.c_str(), NULL, NULL);
@@ -290,10 +292,28 @@ int vulkan_test() {
 
     VkFence fence = createFence(context);
 
-    VkCommandPool commandPool = createCommandPool(context);
+#ifdef USE_PRE_RECOREDED_COMMAND_BUFFER
 
+    VkCommandPool commandPool = createCommandPool(context, 0);
+
+    std::vector<VkCommandBuffer> commandBuffers;
+    commandBuffers.resize(vulkanWindow.swapchain.getImages().size());
+
+    for (VkCommandBuffer& commandBuffer : commandBuffers) {
+
+        commandBuffer = allocateCommandBuffer(context, commandPool);
+
+    }
+
+#else
+
+    VkCommandPool commandPool = createCommandPool(context);
     VkCommandBuffer commandBuffer = allocateCommandBuffer(context, commandPool);
-   
+
+#endif
+
+    
+
     VulkanPipelineCreateInfo pipelineCreateInfo;
     pipelineCreateInfo.subpassIndex = 0;
      
@@ -324,6 +344,56 @@ int vulkan_test() {
     double averageGpuTime = 0.0f;
     double lastFrameTime = 0.0f;
 
+#ifdef USE_PRE_RECOREDED_COMMAND_BUFFER
+
+    for (uint32_t i = 0; i < vulkanWindow.swapchain.getImages().size(); i++) {
+
+        VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+
+        VKA(vkBeginCommandBuffer(commandBuffers[i], &beginInfo));
+
+        vkCmdResetQueryPool(commandBuffers[i], timestampQueryPool, 0, 64);
+
+        vkCmdWriteTimestamp(commandBuffers[i], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 0);
+
+        VkRenderPassBeginInfo renderpassBeginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+        renderpassBeginInfo.renderPass = vulkanWindow.swapchain.getRenderpass().getRenderpass();
+        renderpassBeginInfo.framebuffer = vulkanWindow.swapchain.getFramebuffers()[i].getFramebuffer();
+        renderpassBeginInfo.renderArea = { 0,0, vulkanWindow.swapchain.getWidth(), vulkanWindow.swapchain.getHeight() };
+        renderpassBeginInfo.clearValueCount = 1;
+        VkClearValue clearValue = { 0.1f, 0.1f, 0.102f, 1.0f };
+        renderpassBeginInfo.pClearValues = &clearValue;
+
+        vkCmdBeginRenderPass(commandBuffers[i], &renderpassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipeline());
+
+        VkViewport viewport = { 0.0f, 0.0f, (float)vulkanWindow.swapchain.getWidth(), (float)vulkanWindow.swapchain.getHeight(), 0.0f, 1.0f };
+        VkRect2D scissor = { {0,0}, {vulkanWindow.swapchain.getWidth(), vulkanWindow.swapchain.getHeight()} };
+
+        vkCmdSetViewport(commandBuffers[i], 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffers[i], 0, 1, &scissor);
+
+        VkDeviceSize offsets[] = { 0 };
+
+        const VkBuffer buffer = vertexBuffer.getBuffer();
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, &buffer, offsets);
+
+
+        for (uint32_t j = 0; j < drawCount; j++) {
+
+            vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+        }
+
+        vkCmdEndRenderPass(commandBuffers[i]);
+
+        vkCmdWriteTimestamp(commandBuffers[i], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 1);
+
+        vkEndCommandBuffer(commandBuffers[i]);
+
+    }
+#endif
+
     while (!glfwWindowShouldClose(window))
     {
         
@@ -343,6 +413,8 @@ int vulkan_test() {
 
             std::cout << "Average GPU Time: " << averageGpuTime << "ms\n";
         }
+
+#ifndef USE_PRE_RECOREDED_COMMAND_BUFFER
 
         vkResetCommandPool(context.getData().device, commandPool, 0);
 
@@ -384,17 +456,27 @@ int vulkan_test() {
             vkCmdDraw(commandBuffer, vertices.size(), 1, 0, 0);
         }
 
-        
-
         vkCmdEndRenderPass(commandBuffer);
 
         vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, timestampQueryPool, 1);
 
         vkEndCommandBuffer(commandBuffer);
 
+#endif
+
         VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
         submitInfo.commandBufferCount = 1;
+
+#ifdef USE_PRE_RECOREDED_COMMAND_BUFFER
+
+        submitInfo.pCommandBuffers = &commandBuffers[vulkanWindow.swapchain.getCurrentIndex()];
+
+#else
+
         submitInfo.pCommandBuffers = &commandBuffer;
+
+#endif
+
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = &submitSemaphore;
 
@@ -410,7 +492,7 @@ int vulkan_test() {
 
         double time = glfwGetTime();
 
-        std::cout << (time - lastFrameTime) * 1000 << "\n";
+        std::cout << "Frame Time: " << (time - lastFrameTime) * 1000 << "\n";
 
         lastFrameTime = glfwGetTime();
 

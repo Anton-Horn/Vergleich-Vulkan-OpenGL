@@ -239,13 +239,13 @@ namespace ec {
 
 	}
 
-	 VkCommandPool createCommandPool(const VulkanContext& context) {
+	 VkCommandPool createCommandPool(const VulkanContext& context, uint32_t flags) {
 
 		VkCommandPool result = {};
 
 		VkCommandPoolCreateInfo createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		createInfo.queueFamilyIndex = context.getData().graphicsQueueFamilyIndex;
-		createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+		createInfo.flags = flags;
 		
 
 		VKA(vkCreateCommandPool(context.getData().device, &createInfo, nullptr, &result));
@@ -268,11 +268,12 @@ namespace ec {
 
 	}
 
-	 void beginCommandBuffer(VkCommandBuffer buffer)
+	 void beginCommandBuffer(VkCommandBuffer buffer, uint32_t flags)
 	 {
 
 		 VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-		 beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		 beginInfo.flags = flags;
+
 		 vkBeginCommandBuffer(buffer, &beginInfo);
 
 	 }

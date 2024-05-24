@@ -19,10 +19,10 @@ namespace ec {
     VkAttachmentDescription createAttachment(uint32_t sampleCount, VkFormat format, VkImageLayout initialLayout, VkImageLayout finalLayout, VkAttachmentLoadOp loadOp, VkAttachmentStoreOp storeOp);
     VkSubpassDescription createSubpass(std::vector<VkAttachmentReference>& colorAttachments, std::vector<VkAttachmentReference>& resolveAttachments, std::vector<VkAttachmentReference>& inputAttachments, std::optional<VkAttachmentReference> depthStencilAttachment = std::nullopt);
 
-    VkCommandPool createCommandPool(const VulkanContext& context);
+    VkCommandPool createCommandPool(const VulkanContext& context, uint32_t flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
     VkCommandBuffer allocateCommandBuffer(const VulkanContext& context, VkCommandPool commandPool);
 
-    void beginCommandBuffer(VkCommandBuffer buffer);
+    void beginCommandBuffer(VkCommandBuffer buffer, uint32_t flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     void endCommandBuffer(VkCommandBuffer buffer);
 
     VkFence createFence(const VulkanContext& context, bool signaled = true);
